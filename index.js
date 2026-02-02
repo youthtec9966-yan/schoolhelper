@@ -16,6 +16,10 @@ app.use(logger);
 const communityRouter = require('./routes/community');
 app.use('/api', communityRouter);
 
+// 挂载用户路由
+const userRouter = require('./routes/user');
+app.use('/api', userRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
