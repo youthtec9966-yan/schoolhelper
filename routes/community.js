@@ -21,10 +21,10 @@ router.get('/activities', async (req, res) => {
 });
 
 // --- 帖子 (Post) - 包含论坛、二手、失物 ---
-// 获取帖子列表
+// 获取帖子列表 (仅展示审核通过的)
 router.get('/posts', async (req, res) => {
   const { type } = req.query; // type: forum, second_hand, lost_found
-  const where = {};
+  const where = { status: 1 }; // 默认只查审核通过的
   if (type) where.type = type;
   
   const list = await Post.findAll({
@@ -33,6 +33,30 @@ router.get('/posts', async (req, res) => {
     limit: 50
   });
   res.send({ code: 0, data: list });
+});
+
+// --- 管理端接口 ---
+
+// 获取待审核帖子
+router.get('/admin/posts', async (req, res) => {
+  const list = await Post.findAll({
+    where: { status: 0 },
+    order: [['createdAt', 'ASC']]
+  });
+  res.send({ code: 0, data: list });
+});
+
+// 审核帖子
+router.post('/admin/posts/:id/audit', async (req, res) => {
+  const { status } = req.body; // 1: 通过, 2: 拒绝
+  const post = await Post.findByPk(req.params.id);
+  if (post) {
+    post.status = status;
+    await post.save();
+    res.send({ code: 0, data: post });
+  } else {
+    res.send({ code: 404, error: '帖子不存在' });
+  }
 });
 
 // 发布帖子

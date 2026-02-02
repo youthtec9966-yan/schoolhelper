@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社区内容审核后台</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .post-card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+        .post-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: #666; font-size: 0.9em; }
+        .post-content { font-size: 1.1em; margin-bottom: 10px; }
+        .post-images img { max-width: 200px; max-height: 200px; margin-right: 5px; border-radius: 4px; }
+        .actions { display: flex; gap: 10px; margin-top: 10px; }
+        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .btn-approve { background-color: #28a745; }
+        .btn-reject { background-color: #dc3545; }
+        .no-data { text-align: center; color: #999; margin-top: 50px; }
+    </style>
+</head>
+<body>
+    <h1>社区内容审核</h1>
+    <div id="post-list">加载中...</div>
+
+    <script>
+        async function fetchPosts() {
+            try {
+                const res = await fetch('/api/admin/posts');
+                const json = await res.json();
+                if (json.code === 0) {
+                    renderPosts(json.data);
+                } else {
+                    alert('加载失败: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('网络错误');
+            }
+        }
+
+        function renderPosts(posts) {
+            const container = document.getElementById('post-list');
+            if (posts.length === 0) {
+                container.innerHTML = '<div class="no-data">暂无待审核帖子</div>';
+                return;
+            }
+
+            container.innerHTML = posts.map(post => {
+                let imagesHtml = '';
+                if (post.images) {
+                    try {
+                        const images = JSON.parse(post.images);
+                        if (Array.isArray(images)) {
+                            imagesHtml = images.map(src => `<a href="${src}" target="_blank"><img src="${src}"></a>`).join('');
+                        }
+                    } catch (e) {}
+                }
+
+                return `
+                    <div class="post-card" id="post-${post.id}">
+                        <div class="post-header">
+                            <span>类型: ${translateType(post.type)}</span>
+                            <span>用户: ${post.authorName || '匿名'}</span>
+                            <span>时间: ${new Date(post.createdAt).toLocaleString()}</span>
+                        </div>
+                        <h3>${post.title || '无标题'}</h3>
+                        <div class="post-content">${post.content}</div>
+                        <div class="post-images">${imagesHtml}</div>
+                        ${post.price ? `<div>价格: ${post.price}</div>` : ''}
+                        ${post.contact ? `<div>联系: ${post.contact}</div>` : ''}
+                        <div class="actions">
+                            <button class="btn-approve" onclick="auditPost(${post.id}, 1)">通过</button>
+                            <button class="btn-reject" onclick="auditPost(${post.id}, 2)">拒绝</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function translateType(type) {
+            const map = {
+                'forum': '论坛',
+                'second_hand': '二手',
+                'lost_found': '失物',
+                'found': '招领'
+            };
+            return map[type] || type;
+        }
+
+        async function auditPost(id, status) {
+            if (!confirm(status === 1 ? '确认通过？' : '确认拒绝？')) return;
+            
+            try {
+                const res = await fetch(`/api/admin/posts/${id}/audit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const json = await res.json();
+                if (json.code === 0) {
+                    document.getElementById(`post-${id}`).remove();
+                    if (document.querySelectorAll('.post-card').length === 0) {
+                        document.getElementById('post-list').innerHTML = '<div class="no-data">暂无待审核帖子</div>';
+                    }
+                } else {
+                    alert('操作失败: ' + json.error);
+                }
+            } catch (err) {
+                alert('网络错误');
+            }
+        }
+
+        fetchPosts();
+    </script>
+</body>
+</html>

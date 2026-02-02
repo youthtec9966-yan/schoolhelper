@@ -21,6 +21,11 @@ app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// 管理后台
+app.get("/admin", async (req, res) => {
+  res.sendFile(path.join(__dirname, "admin.html"));
+});
+
 // 更新计数
 app.post("/api/count", async (req, res) => {
   const { action } = req.body;
