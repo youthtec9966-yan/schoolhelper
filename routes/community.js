@@ -14,6 +14,22 @@ router.get('/news', async (req, res) => {
   res.send({ code: 0, data: list });
 });
 
+router.get('/news/:id', async (req, res) => {
+  try {
+    const news = await News.findByPk(req.params.id);
+    if (news) {
+      // 增加阅读量 (可选)
+      news.readCount = (news.readCount || 0) + 1;
+      await news.save();
+      res.send({ code: 0, data: news });
+    } else {
+      res.send({ code: 404, error: 'News not found' });
+    }
+  } catch (err) {
+    res.send({ code: 500, error: 'Failed to fetch news' });
+  }
+});
+
 // --- 社团 (Club) ---
 router.get('/clubs', async (req, res) => {
   const list = await Club.findAll();
