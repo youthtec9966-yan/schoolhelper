@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { Post, News, Club, Activity } = require('../db');
+const { Post, News, Club, Activity, Carousel } = require('../db');
+
+// --- 轮播图 (Carousel) ---
+router.get('/carousels', async (req, res) => {
+  const list = await Carousel.findAll({ order: [['weight', 'DESC'], ['createdAt', 'DESC']] });
+  res.send({ code: 0, data: list });
+});
 
 // --- 资讯 (News) ---
 router.get('/news', async (req, res) => {
@@ -37,6 +43,51 @@ router.get('/posts', async (req, res) => {
 });
 
 // --- 管理端接口 ---
+
+// 1. 轮播图管理
+router.post('/admin/carousels', async (req, res) => {
+  const { imageUrl, link, weight, title } = req.body;
+  try {
+    const carousel = await Carousel.create({ imageUrl, link, weight, title });
+    res.send({ code: 0, data: carousel });
+  } catch (err) {
+    res.send({ code: 500, error: '创建轮播图失败' });
+  }
+});
+
+router.delete('/admin/carousels/:id', async (req, res) => {
+  try {
+    await Carousel.destroy({ where: { id: req.params.id } });
+    res.send({ code: 0 });
+  } catch (err) {
+    res.send({ code: 500, error: '删除轮播图失败' });
+  }
+});
+
+// 2. 资讯/公告管理
+router.get('/admin/news', async (req, res) => {
+  const list = await News.findAll({ order: [['publishDate', 'DESC']] });
+  res.send({ code: 0, data: list });
+});
+
+router.post('/admin/news', async (req, res) => {
+  const { type, title, summary, content, cover } = req.body;
+  try {
+    const news = await News.create({ type, title, summary, content, cover });
+    res.send({ code: 0, data: news });
+  } catch (err) {
+    res.send({ code: 500, error: '发布资讯失败' });
+  }
+});
+
+router.delete('/admin/news/:id', async (req, res) => {
+  try {
+    await News.destroy({ where: { id: req.params.id } });
+    res.send({ code: 0 });
+  } catch (err) {
+    res.send({ code: 500, error: '删除资讯失败' });
+  }
+});
 
 // 获取待审核帖子
 router.get('/admin/posts', async (req, res) => {

@@ -18,6 +18,7 @@ const defineNews = require('./models/news');
 const defineClub = require('./models/club');
 const defineActivity = require('./models/activity');
 const defineUser = require('./models/user');
+const defineCarousel = require('./models/carousel');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -25,6 +26,7 @@ const News = defineNews(sequelize);
 const Club = defineClub(sequelize);
 const Activity = defineActivity(sequelize);
 const User = defineUser(sequelize);
+const Carousel = defineCarousel(sequelize);
 
 // 保留 Counter 示例，以免破坏原有逻辑
 const Counter = sequelize.define("Counter", {
@@ -45,6 +47,7 @@ async function init() {
   await Club.sync({ alter: true });
   await Activity.sync({ alter: true });
   await User.sync({ alter: true });
+  await Carousel.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -56,5 +59,6 @@ module.exports = {
   News,
   Club,
   Activity,
-  User
+  User,
+  Carousel
 };

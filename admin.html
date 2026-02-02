@@ -3,113 +3,293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社区内容审核后台</title>
+    <title>校园生活管理后台</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .post-card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
-        .post-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: #666; font-size: 0.9em; }
-        .post-content { font-size: 1.1em; margin-bottom: 10px; }
-        .post-images img { max-width: 200px; max-height: 200px; margin-right: 5px; border-radius: 4px; }
-        .actions { display: flex; gap: 10px; margin-top: 10px; }
-        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; }
-        .btn-approve { background-color: #28a745; }
-        .btn-reject { background-color: #dc3545; }
-        .no-data { text-align: center; color: #999; margin-top: 50px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f4f5f7; }
+        
+        /* Sidebar */
+        .sidebar { width: 240px; background-color: #001529; color: #fff; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: bold; text-align: center; border-bottom: 1px solid #002140; }
+        .nav-item { padding: 15px 20px; cursor: pointer; transition: background 0.3s; }
+        .nav-item:hover { background-color: #1890ff; }
+        .nav-item.active { background-color: #1890ff; }
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        /* Common */
+        h2 { margin-top: 0; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 14px; }
+        .btn-primary { background-color: #1890ff; }
+        .btn-danger { background-color: #ff4d4f; }
+        .btn-success { background-color: #52c41a; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-control { width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; box-sizing: border-box; }
+        .card { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* Lists */
+        .list-item { display: flex; align-items: center; border-bottom: 1px solid #f0f0f0; padding: 15px 0; }
+        .list-item:last-child { border-bottom: none; }
+        .item-img { width: 100px; height: 60px; object-fit: cover; margin-right: 15px; border-radius: 4px; background: #eee; }
+        .item-info { flex: 1; }
+        .item-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+        .item-meta { color: #999; font-size: 12px; }
+        .item-actions { margin-left: 15px; }
+
+        /* Post Specific */
+        .post-images img { max-width: 150px; max-height: 150px; margin-right: 5px; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <h1>社区内容审核</h1>
-    <div id="post-list">加载中...</div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">校园生活后台</div>
+        <div class="nav-item active" onclick="switchTab('audit')">帖子审核</div>
+        <div class="nav-item" onclick="switchTab('carousel')">轮播图设置</div>
+        <div class="nav-item" onclick="switchTab('news')">校园咨询/公告</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        
+        <!-- 1. Post Audit Section -->
+        <div id="section-audit" class="section active">
+            <h2>帖子审核</h2>
+            <div id="audit-list">加载中...</div>
+        </div>
+
+        <!-- 2. Carousel Management Section -->
+        <div id="section-carousel" class="section">
+            <h2>轮播图管理</h2>
+            
+            <div class="card">
+                <h3>添加轮播图</h3>
+                <div class="form-group">
+                    <label>图片URL</label>
+                    <input type="text" id="car-img" class="form-control" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>标题 (可选)</label>
+                    <input type="text" id="car-title" class="form-control" placeholder="例如：迎新晚会">
+                </div>
+                <div class="form-group">
+                    <label>跳转链接 (可选)</label>
+                    <input type="text" id="car-link" class="form-control" placeholder="/pages/...">
+                </div>
+                <div class="form-group">
+                    <label>权重 (数字越大越靠前)</label>
+                    <input type="number" id="car-weight" class="form-control" value="0">
+                </div>
+                <button class="btn btn-primary" onclick="addCarousel()">添加</button>
+            </div>
+
+            <div class="card">
+                <h3>轮播图列表</h3>
+                <div id="carousel-list"></div>
+            </div>
+        </div>
+
+        <!-- 3. News Management Section -->
+        <div id="section-news" class="section">
+            <h2>资讯与公告</h2>
+            
+            <div class="card">
+                <h3>发布新内容</h3>
+                <div class="form-group">
+                    <label>类型</label>
+                    <select id="news-type" class="form-control">
+                        <option value="news">校园资讯</option>
+                        <option value="announcement">系统公告</option>
+                        <option value="notice">通知</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>标题</label>
+                    <input type="text" id="news-title" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>封面图URL (可选)</label>
+                    <input type="text" id="news-cover" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>摘要 (可选)</label>
+                    <input type="text" id="news-summary" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>正文内容</label>
+                    <textarea id="news-content" class="form-control" rows="5"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="addNews()">发布</button>
+            </div>
+
+            <div class="card">
+                <h3>内容列表</h3>
+                <div id="news-list"></div>
+            </div>
+        </div>
+
+    </div>
 
     <script>
-        async function fetchPosts() {
-            try {
-                const res = await fetch('/api/admin/posts');
-                const json = await res.json();
-                if (json.code === 0) {
-                    renderPosts(json.data);
-                } else {
-                    alert('加载失败: ' + json.error);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('网络错误');
-            }
+        // --- Tab Switching ---
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById('section-' + tab).classList.add('active');
+            
+            if (tab === 'audit') fetchAuditPosts();
+            if (tab === 'carousel') fetchCarousels();
+            if (tab === 'news') fetchNews();
         }
 
-        function renderPosts(posts) {
-            const container = document.getElementById('post-list');
-            if (posts.length === 0) {
-                container.innerHTML = '<div class="no-data">暂无待审核帖子</div>';
+        // --- 1. Audit Logic ---
+        async function fetchAuditPosts() {
+            const res = await fetch('/api/admin/posts');
+            const json = await res.json();
+            const container = document.getElementById('audit-list');
+            
+            if (json.data.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999">暂无待审核帖子</div>';
                 return;
             }
 
-            container.innerHTML = posts.map(post => {
+            container.innerHTML = json.data.map(post => {
                 let imagesHtml = '';
-                if (post.images) {
-                    try {
-                        const images = JSON.parse(post.images);
-                        if (Array.isArray(images)) {
-                            imagesHtml = images.map(src => `<a href="${src}" target="_blank"><img src="${src}"></a>`).join('');
-                        }
-                    } catch (e) {}
-                }
+                try {
+                    const imgs = JSON.parse(post.images || '[]');
+                    imagesHtml = imgs.map(src => `<a href="${src}" target="_blank"><img src="${src}"></a>`).join('');
+                } catch(e) {}
+                
+                const typeMap = { 'forum': '论坛', 'second_hand': '二手', 'lost_found': '失物', 'found': '招领' };
 
                 return `
-                    <div class="post-card" id="post-${post.id}">
-                        <div class="post-header">
-                            <span>类型: ${translateType(post.type)}</span>
-                            <span>用户: ${post.authorName || '匿名'}</span>
-                            <span>时间: ${new Date(post.createdAt).toLocaleString()}</span>
+                    <div class="card">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:10px;color:#666">
+                            <span>[${typeMap[post.type] || post.type}] ${post.category ? '('+post.category+')' : ''}</span>
+                            <span>${new Date(post.createdAt).toLocaleString()}</span>
                         </div>
-                        <h3>${post.title || '无标题'}</h3>
-                        <div class="post-content">${post.content}</div>
+                        <div class="item-title">${post.title || '无标题'}</div>
+                        <div style="margin:10px 0">${post.content}</div>
                         <div class="post-images">${imagesHtml}</div>
-                        ${post.price ? `<div>价格: ${post.price}</div>` : ''}
-                        ${post.contact ? `<div>联系: ${post.contact}</div>` : ''}
-                        <div class="actions">
-                            <button class="btn-approve" onclick="auditPost(${post.id}, 1)">通过</button>
-                            <button class="btn-reject" onclick="auditPost(${post.id}, 2)">拒绝</button>
+                        <div style="margin-top:10px">
+                            <button class="btn btn-success" onclick="auditPost(${post.id}, 1)">通过</button>
+                            <button class="btn btn-danger" onclick="auditPost(${post.id}, 2)">拒绝</button>
                         </div>
                     </div>
                 `;
             }).join('');
         }
 
-        function translateType(type) {
-            const map = {
-                'forum': '论坛',
-                'second_hand': '二手',
-                'lost_found': '失物',
-                'found': '招领'
-            };
-            return map[type] || type;
-        }
-
         async function auditPost(id, status) {
-            if (!confirm(status === 1 ? '确认通过？' : '确认拒绝？')) return;
-            
-            try {
-                const res = await fetch(`/api/admin/posts/${id}/audit`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
-                const json = await res.json();
-                if (json.code === 0) {
-                    document.getElementById(`post-${id}`).remove();
-                    if (document.querySelectorAll('.post-card').length === 0) {
-                        document.getElementById('post-list').innerHTML = '<div class="no-data">暂无待审核帖子</div>';
-                    }
-                } else {
-                    alert('操作失败: ' + json.error);
-                }
-            } catch (err) {
-                alert('网络错误');
-            }
+            if (!confirm('确认操作？')) return;
+            await fetch(`/api/admin/posts/${id}/audit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            fetchAuditPosts();
         }
 
-        fetchPosts();
+        // --- 2. Carousel Logic ---
+        async function fetchCarousels() {
+            const res = await fetch('/api/carousels'); // Reuse public API or make admin specific if needed
+            const json = await res.json();
+            const container = document.getElementById('carousel-list');
+            
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <img class="item-img" src="${item.imageUrl}">
+                    <div class="item-info">
+                        <div class="item-title">${item.title || '无标题'}</div>
+                        <div class="item-meta">链接: ${item.link || '无'} | 权重: ${item.weight}</div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-danger" onclick="deleteCarousel(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addCarousel() {
+            const imageUrl = document.getElementById('car-img').value;
+            if (!imageUrl) return alert('请输入图片URL');
+            
+            await fetch('/api/admin/carousels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    imageUrl,
+                    title: document.getElementById('car-title').value,
+                    link: document.getElementById('car-link').value,
+                    weight: document.getElementById('car-weight').value
+                })
+            });
+            
+            // Clear inputs
+            document.getElementById('car-img').value = '';
+            document.getElementById('car-title').value = '';
+            
+            fetchCarousels();
+        }
+
+        async function deleteCarousel(id) {
+            if (!confirm('确认删除？')) return;
+            await fetch(`/api/admin/carousels/${id}`, { method: 'DELETE' });
+            fetchCarousels();
+        }
+
+        // --- 3. News Logic ---
+        async function fetchNews() {
+            const res = await fetch('/api/admin/news');
+            const json = await res.json();
+            const container = document.getElementById('news-list');
+            
+            const typeMap = { 'news': '资讯', 'announcement': '公告', 'notice': '通知' };
+
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">[${typeMap[item.type]}] ${item.title}</div>
+                        <div class="item-meta">${new Date(item.publishDate).toLocaleDateString()} | ${item.summary || '无摘要'}</div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-danger" onclick="deleteNews(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addNews() {
+            const title = document.getElementById('news-title').value;
+            if (!title) return alert('请输入标题');
+            
+            await fetch('/api/admin/news', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: document.getElementById('news-type').value,
+                    title,
+                    cover: document.getElementById('news-cover').value,
+                    summary: document.getElementById('news-summary').value,
+                    content: document.getElementById('news-content').value
+                })
+            });
+            
+            // Clear inputs
+            document.getElementById('news-title').value = '';
+            document.getElementById('news-content').value = '';
+            
+            fetchNews();
+        }
+
+        // Init
+        fetchAuditPosts();
     </script>
 </body>
 </html>
