@@ -1,0 +1,55 @@
+const { Sequelize, DataTypes } = require("sequelize");
+
+// 从环境变量中读取数据库配置
+const { MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_ADDRESS = "" } = process.env;
+
+const [host, port] = MYSQL_ADDRESS.split(":");
+
+const sequelize = new Sequelize("nodejs_demo", MYSQL_USERNAME, MYSQL_PASSWORD, {
+  host,
+  port,
+  dialect: "mysql" /* one of 'mysql' | 'mariadb' | 'postgres' | 'mssql' */,
+  logging: false, // 生产环境建议关闭日志
+});
+
+// 引入模型
+const definePost = require('./models/post');
+const defineNews = require('./models/news');
+const defineClub = require('./models/club');
+const defineActivity = require('./models/activity');
+
+// 初始化模型
+const Post = definePost(sequelize);
+const News = defineNews(sequelize);
+const Club = defineClub(sequelize);
+const Activity = defineActivity(sequelize);
+// 保留 Counter 示例，以免破坏原有逻辑
+const Counter = sequelize.define("Counter", {
+  count: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+  },
+});
+
+// 数据库初始化方法
+async function init() {
+  // sync({ alter: true }) 会自动根据模型修改表结构，生产环境慎用 alter，建议用 migration
+  // 但对于云托管初学者，alter 是最方便的
+  await Counter.sync({ alter: true });
+  await Post.sync({ alter: true });
+  await News.sync({ alter: true });
+  await Club.sync({ alter: true });
+  await Activity.sync({ alter: true });
+}
+
+// 导出初始化方法和模型
+module.exports = {
+  init,
+  sequelize,
+  Counter,
+  Post,
+  News,
+  Club,
+  Activity
+};
