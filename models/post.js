@@ -8,6 +8,11 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 'forum'
     },
+    // 论坛分类 (如: 学术交流, 生活趣事, etc.)
+    category: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     // 标题
     title: {
       type: DataTypes.STRING,

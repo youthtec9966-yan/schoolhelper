@@ -23,9 +23,10 @@ router.get('/activities', async (req, res) => {
 // --- 帖子 (Post) - 包含论坛、二手、失物 ---
 // 获取帖子列表 (仅展示审核通过的)
 router.get('/posts', async (req, res) => {
-  const { type } = req.query; // type: forum, second_hand, lost_found
+  const { type, category } = req.query; // type: forum, second_hand, lost_found
   const where = { status: 1 }; // 默认只查审核通过的
   if (type) where.type = type;
+  if (category) where.category = category;
   
   const list = await Post.findAll({
     where,
@@ -66,11 +67,12 @@ router.post('/posts', async (req, res) => {
     return res.send({ code: 401, error: '未登录' });
   }
 
-  const { type, title, content, images, price, contact, userInfo } = req.body;
+  const { type, category, title, content, images, price, contact, userInfo } = req.body;
   
   try {
     const post = await Post.create({
       type,
+      category,
       title,
       content,
       images,
