@@ -19,6 +19,8 @@ const defineClub = require('./models/club');
 const defineActivity = require('./models/activity');
 const defineUser = require('./models/user');
 const defineCarousel = require('./models/carousel');
+const defineComment = require('./models/comment');
+const definePostLike = require('./models/post_like');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -27,6 +29,15 @@ const Club = defineClub(sequelize);
 const Activity = defineActivity(sequelize);
 const User = defineUser(sequelize);
 const Carousel = defineCarousel(sequelize);
+const Comment = defineComment(sequelize);
+const PostLike = definePostLike(sequelize);
+
+// 建立关联
+Post.hasMany(Comment, { foreignKey: 'postId' });
+Comment.belongsTo(Post, { foreignKey: 'postId' });
+
+Post.hasMany(PostLike, { foreignKey: 'postId' });
+PostLike.belongsTo(Post, { foreignKey: 'postId' });
 
 // 保留 Counter 示例，以免破坏原有逻辑
 const Counter = sequelize.define("Counter", {
@@ -48,6 +59,9 @@ async function init() {
   await Activity.sync({ alter: true });
   await User.sync({ alter: true });
   await Carousel.sync({ alter: true });
+  await Comment.sync({ alter: true });
+  await PostLike.sync({ alter: true });
+  await Course.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -60,5 +74,8 @@ module.exports = {
   Club,
   Activity,
   User,
-  Carousel
+  Carousel,
+  Comment,
+  PostLike,
+  Course
 };

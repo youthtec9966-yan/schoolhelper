@@ -20,6 +20,10 @@ app.use('/api', communityRouter);
 const userRouter = require('./routes/user');
 app.use('/api', userRouter);
 
+// 挂载课程路由
+const courseRouter = require('./routes/course');
+app.use('/api', courseRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));

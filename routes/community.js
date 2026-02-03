@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Post, News, Club, Activity, Carousel } = require('../db');
+const { Post, News, Club, Activity, Carousel, Comment, PostLike } = require('../db');
 
 // --- 轮播图 (Carousel) ---
 router.get('/carousels', async (req, res) => {
@@ -45,8 +45,16 @@ router.get('/activities', async (req, res) => {
 // --- 帖子 (Post) - 包含论坛、二手、失物 ---
 // 获取帖子列表 (仅展示审核通过的)
 router.get('/posts', async (req, res) => {
-  const { type, category } = req.query; // type: forum, second_hand, lost_found
-  const where = { status: 1 }; // 默认只查审核通过的
+  const { type, category, authorId } = req.query; // type: forum, second_hand, lost_found
+  const where = {};
+  
+  // 如果指定了 authorId，则查询该用户的所有帖子（包括待审核等）；否则只查审核通过的
+  if (authorId) {
+    where.authorId = authorId;
+  } else {
+    where.status = 1;
+  }
+
   if (type) where.type = type;
   if (category) where.category = category;
   
@@ -56,6 +64,99 @@ router.get('/posts', async (req, res) => {
     limit: 50
   });
   res.send({ code: 0, data: list });
+});
+
+// 获取帖子详情
+router.get('/posts/:id', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const post = await Post.findByPk(req.params.id);
+    if (post) {
+      // 增加浏览量
+      post.viewCount = (post.viewCount || 0) + 1;
+      await post.save();
+
+      const postData = post.toJSON();
+      
+      // 获取评论数
+      postData.commentCount = await Comment.count({ where: { postId: post.id } });
+      
+      // 检查是否点赞
+      if (userId) {
+        const like = await PostLike.findOne({ where: { postId: post.id, userId } });
+        postData.isLiked = !!like;
+      } else {
+        postData.isLiked = false;
+      }
+
+      res.send({ code: 0, data: postData });
+    } else {
+      res.send({ code: 404, error: 'Post not found' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.send({ code: 500, error: 'Failed to fetch post' });
+  }
+});
+
+// 获取评论列表
+router.get('/posts/:id/comments', async (req, res) => {
+  try {
+    const comments = await Comment.findAll({
+      where: { postId: req.params.id },
+      order: [['createdAt', 'DESC']]
+    });
+    res.send({ code: 0, data: comments });
+  } catch (err) {
+    res.send({ code: 500, error: 'Failed to fetch comments' });
+  }
+});
+
+// 发表评论
+router.post('/posts/:id/comments', async (req, res) => {
+  try {
+    const { content, authorId, authorName, authorAvatar } = req.body;
+    const comment = await Comment.create({
+      postId: req.params.id,
+      content,
+      authorId,
+      authorName,
+      authorAvatar
+    });
+    res.send({ code: 0, data: comment });
+  } catch (err) {
+    res.send({ code: 500, error: 'Failed to create comment' });
+  }
+});
+
+// 点赞/取消点赞
+router.post('/posts/:id/like', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const postId = req.params.id;
+    
+    const existingLike = await PostLike.findOne({ where: { postId, userId } });
+    const post = await Post.findByPk(postId);
+    
+    if (!post) {
+      return res.send({ code: 404, error: 'Post not found' });
+    }
+
+    if (existingLike) {
+      // 取消点赞
+      await existingLike.destroy();
+      post.likeCount = Math.max(0, (post.likeCount || 0) - 1);
+    } else {
+      // 点赞
+      await PostLike.create({ postId, userId });
+      post.likeCount = (post.likeCount || 0) + 1;
+    }
+    
+    await post.save();
+    res.send({ code: 0, data: { likeCount: post.likeCount, isLiked: !existingLike } });
+  } catch (err) {
+    res.send({ code: 500, error: 'Failed to toggle like' });
+  }
 });
 
 // --- 管理端接口 ---

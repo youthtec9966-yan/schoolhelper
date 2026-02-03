@@ -51,6 +51,7 @@
         <div class="nav-item active" onclick="switchTab('audit')">帖子审核</div>
         <div class="nav-item" onclick="switchTab('carousel')">轮播图设置</div>
         <div class="nav-item" onclick="switchTab('news')">校园咨询/公告</div>
+        <div class="nav-item" onclick="switchTab('course')">课表管理</div>
     </div>
 
     <!-- Main Content -->
@@ -286,6 +287,56 @@
             document.getElementById('news-content').value = '';
             
             fetchNews();
+        }
+
+        // --- 4. Course Logic ---
+        async function fetchCourses() {
+            const res = await fetch('/api/courses');
+            const json = await res.json();
+            const container = document.getElementById('course-list');
+            
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.name} (${item.teacher || '待定'})</div>
+                        <div class="item-meta">
+                            周${['','一','二','三','四','五','六','日'][item.dayOfWeek]} ${item.startTime}-${item.endTime} | ${item.location}
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-danger" onclick="deleteCourse(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addCourse() {
+            const name = document.getElementById('course-name').value;
+            if (!name) return alert('请输入课程名称');
+            
+            await fetch('/api/courses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    teacher: document.getElementById('course-teacher').value,
+                    location: document.getElementById('course-location').value,
+                    dayOfWeek: document.getElementById('course-day').value,
+                    startTime: document.getElementById('course-start').value,
+                    endTime: document.getElementById('course-end').value,
+                    weeks: document.getElementById('course-weeks').value,
+                    color: document.getElementById('course-color').value
+                })
+            });
+            
+            document.getElementById('course-name').value = '';
+            fetchCourses();
+        }
+
+        async function deleteCourse(id) {
+            if (!confirm('确认删除？')) return;
+            await fetch(`/api/courses/${id}`, { method: 'DELETE' });
+            fetchCourses();
         }
 
         // Init
