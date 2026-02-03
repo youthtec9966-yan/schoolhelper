@@ -187,6 +187,21 @@
                 <button class="btn btn-primary" onclick="addCourse()">添加课程</button>
             </div>
             <div class="card">
+                <h3>批量导入课表</h3>
+                <div class="form-group">
+                    <a class="btn btn-primary" href="/api/courses/template">下载课表模板（CSV）</a>
+                </div>
+                <div class="form-group">
+                    <label>上传已填写模板</label>
+                    <input type="file" id="course-import-file" class="form-control" accept=".csv,text/csv">
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px">
+                    <input type="checkbox" id="course-import-replace" checked>
+                    <label for="course-import-replace" style="margin:0;font-weight:normal">覆盖现有课表</label>
+                </div>
+                <button class="btn btn-success" onclick="importCourses()">上传并导入</button>
+            </div>
+            <div class="card">
                 <h3>课程列表</h3>
                 <div id="course-list"></div>
             </div>
@@ -390,6 +405,39 @@
             });
             
             document.getElementById('course-name').value = '';
+            fetchCourses();
+        }
+
+        async function importCourses() {
+            const input = document.getElementById('course-import-file');
+            const file = input.files && input.files[0];
+            if (!file) return alert('请选择CSV文件');
+
+            const csv = await file.text();
+            const replace = document.getElementById('course-import-replace').checked;
+
+            const res = await fetch('/api/courses/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ csv, replace })
+            });
+            const json = await res.json();
+            if (json.code !== 0) {
+                alert(json.error || '导入失败');
+                return;
+            }
+
+            const created = json.data && json.data.created ? json.data.created : 0;
+            const skipped = json.data && json.data.skipped ? json.data.skipped : 0;
+            const errors = (json.data && json.data.errors) ? json.data.errors : [];
+
+            let msg = `导入完成：新增${created}条，跳过${skipped}条`;
+            if (errors.length) {
+                msg += `\n\n前5条错误：\n${errors.slice(0, 5).join('\n')}`;
+            }
+            alert(msg);
+
+            input.value = '';
             fetchCourses();
         }
 
