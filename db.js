@@ -22,6 +22,7 @@ const defineCarousel = require('./models/carousel');
 const defineComment = require('./models/comment');
 const definePostLike = require('./models/post_like');
 const defineCourse = require('./models/course');
+const defineExam = require('./models/exam');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -33,6 +34,7 @@ const Carousel = defineCarousel(sequelize);
 const Comment = defineComment(sequelize);
 const PostLike = definePostLike(sequelize);
 const Course = defineCourse(sequelize);
+const Exam = defineExam(sequelize);
 
 // 建立关联
 Post.hasMany(Comment, { foreignKey: 'postId' });
@@ -64,6 +66,7 @@ async function init() {
   await Comment.sync({ alter: true });
   await PostLike.sync({ alter: true });
   await Course.sync({ alter: true });
+  await Exam.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -79,5 +82,6 @@ module.exports = {
   Carousel,
   Comment,
   PostLike,
-  Course
+  Course,
+  Exam
 };

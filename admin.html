@@ -46,12 +46,13 @@
 <body>
 
     <!-- Sidebar -->
-    <div class="sidebar">
+        <div class="sidebar">
         <div class="sidebar-header">校园生活后台</div>
         <div class="nav-item active" onclick="switchTab('audit')">帖子审核</div>
         <div class="nav-item" onclick="switchTab('carousel')">轮播图设置</div>
         <div class="nav-item" onclick="switchTab('news')">校园咨询/公告</div>
         <div class="nav-item" onclick="switchTab('course')">课表管理</div>
+        <div class="nav-item" onclick="switchTab('exam')">考试安排</div>
     </div>
 
     <!-- Main Content -->
@@ -207,6 +208,53 @@
             </div>
         </div>
 
+        <!-- 5. Exam Management Section -->
+        <div id="section-exam" class="section">
+            <h2>考试安排管理</h2>
+            <div class="card">
+                <h3>新增考试安排</h3>
+                <div class="form-group">
+                    <label>考试科目</label>
+                    <input type="text" id="exam-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>类型</label>
+                    <input type="text" id="exam-type" class="form-control" value="期末">
+                </div>
+                <div class="form-group">
+                    <label>考试日期</label>
+                    <input type="date" id="exam-date" class="form-control">
+                </div>
+                <div class="form-group" style="display:flex;gap:12px">
+                    <div style="flex:1">
+                        <label>开始时间</label>
+                        <input type="time" id="exam-start" class="form-control" value="09:00">
+                    </div>
+                    <div style="flex:1">
+                        <label>结束时间</label>
+                        <input type="time" id="exam-end" class="form-control" value="11:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>地点</label>
+                    <input type="text" id="exam-location" class="form-control" placeholder="教学楼 301">
+                </div>
+                <div class="form-group">
+                    <label>座号</label>
+                    <input type="text" id="exam-seat" class="form-control" placeholder="如 15">
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <input type="text" id="exam-remark" class="form-control" placeholder="如 携带证件">
+                </div>
+                <button class="btn btn-primary" onclick="addExam()">添加</button>
+            </div>
+            <div class="card">
+                <h3>考试安排列表</h3>
+                <div id="exam-list"></div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -222,6 +270,7 @@
             if (tab === 'carousel') fetchCarousels();
             if (tab === 'news') fetchNews();
             if (tab === 'course') fetchCourses();
+            if (tab === 'exam') fetchExams();
         }
 
         // --- 1. Audit Logic ---
@@ -439,6 +488,59 @@
 
             input.value = '';
             fetchCourses();
+        }
+
+        async function fetchExams() {
+            const res = await fetch('/api/exams');
+            const json = await res.json();
+            const container = document.getElementById('exam-list');
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.name} (${item.type || '期末'})</div>
+                        <div class="item-meta">
+                            ${item.examDate} ${item.startTime}-${item.endTime} | ${item.location || ''} 座号: ${item.seat || '-'}
+                        </div>
+                        ${item.remark ? `<div class="item-meta">${item.remark}</div>` : ''}
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-danger" onclick="deleteExam(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addExam() {
+            const name = document.getElementById('exam-name').value;
+            const examDate = document.getElementById('exam-date').value;
+            const startTime = document.getElementById('exam-start').value;
+            const endTime = document.getElementById('exam-end').value;
+            if (!name || !examDate || !startTime || !endTime) {
+                alert('请填写科目、日期和时间');
+                return;
+            }
+            await fetch('/api/exams', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    type: document.getElementById('exam-type').value,
+                    examDate,
+                    startTime,
+                    endTime,
+                    location: document.getElementById('exam-location').value,
+                    seat: document.getElementById('exam-seat').value,
+                    remark: document.getElementById('exam-remark').value
+                })
+            });
+            document.getElementById('exam-name').value = '';
+            fetchExams();
+        }
+
+        async function deleteExam(id) {
+            if (!confirm('确认删除？')) return;
+            await fetch(`/api/exams/${id}`, { method: 'DELETE' });
+            fetchExams();
         }
 
         async function readCsvFileSmart(file) {

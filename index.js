@@ -24,6 +24,10 @@ app.use('/api', userRouter);
 const courseRouter = require('./routes/course');
 app.use('/api', courseRouter);
 
+// 挂载考试路由
+const examRouter = require('./routes/exam');
+app.use('/api', examRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
