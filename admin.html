@@ -413,7 +413,7 @@
             const file = input.files && input.files[0];
             if (!file) return alert('请选择CSV文件');
 
-            const csv = await file.text();
+            const csv = await readCsvFileSmart(file);
             const replace = document.getElementById('course-import-replace').checked;
 
             const res = await fetch('/api/courses/import', {
@@ -439,6 +439,41 @@
 
             input.value = '';
             fetchCourses();
+        }
+
+        async function readCsvFileSmart(file) {
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            const hasUtf8Bom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+            const utf8 = decodeWith(bytes, 'utf-8');
+            if (hasUtf8Bom) return stripBom(utf8);
+            if (looksGarbled(utf8)) {
+                const gbk = decodeWith(bytes, 'gbk');
+                if (!looksGarbled(gbk)) return gbk;
+            }
+            return stripBom(utf8);
+        }
+
+        function decodeWith(bytes, encoding) {
+            try {
+                return new TextDecoder(encoding, { fatal: false }).decode(bytes);
+            } catch (e) {
+                return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+            }
+        }
+
+        function looksGarbled(text) {
+            const s = String(text || '');
+            if (!s) return false;
+            const replacementCount = (s.match(/\uFFFD/g) || []).length;
+            const ratio = replacementCount / Math.max(1, s.length);
+            return replacementCount >= 3 || ratio > 0.01;
+        }
+
+        function stripBom(text) {
+            const s = String(text || '');
+            if (s.charCodeAt(0) === 0xFEFF) return s.slice(1);
+            return s;
         }
 
         async function deleteCourse(id) {
