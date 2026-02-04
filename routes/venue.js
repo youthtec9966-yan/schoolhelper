@@ -8,9 +8,21 @@ const { Op } = require('sequelize');
 // Get all venues (Admin can see all, Users typically see open ones, but for listing we show all with status)
 router.get('/venues', async (req, res) => {
   try {
-    const venues = await Venue.findAll({
+    let venues = await Venue.findAll({
       order: [['id', 'ASC']]
     });
+    
+    // Auto-seed for demo if empty
+    if (venues.length === 0) {
+       await Venue.bulkCreate([
+         { name: '第一教学楼101', type: 'classroom', status: 'open', openHours: '08:00-22:00', location: '一教' },
+         { name: '体育馆羽毛球场1号', type: 'sports', status: 'open', openHours: '09:00-21:00', location: '体育馆' },
+         { name: '行政楼会议室205', type: 'meeting', status: 'maintenance', openHours: '08:00-18:00', location: '行政楼' },
+         { name: '图书馆自习室A区', type: 'classroom', status: 'open', openHours: '07:00-23:00', location: '图书馆' }
+       ]);
+       venues = await Venue.findAll({ order: [['id', 'ASC']] });
+    }
+
     res.send({ code: 0, data: venues });
   } catch (err) {
     res.send({ code: -1, error: err.toString() });
@@ -99,12 +111,19 @@ router.get('/venues/bookings', async (req, res) => {
   }
 });
 
-// Create Booking (User)
+// Create Booking (User or Admin)
 router.post('/venues/bookings', async (req, res) => {
-  const openid = req.headers['x-wx-openid'];
-  if (!openid) return res.send({ code: -1, error: '未登录' });
-  
-  const { venueId, userName, userPhone, bookDate, startTime, endTime, reason } = req.body;
+  let openid = req.headers['x-wx-openid'];
+  const { venueId, userName, userPhone, bookDate, startTime, endTime, reason, isAdmin } = req.body;
+
+  // Allow admin to book without openid (assign 'ADMIN')
+  if (!openid) {
+      if (isAdmin) {
+          openid = 'ADMIN';
+      } else {
+          return res.send({ code: -1, error: '未登录' });
+      }
+  }
   
   if (!venueId || !bookDate || !startTime || !endTime) {
     return res.send({ code: -1, error: '缺少必填参数' });
@@ -117,17 +136,13 @@ router.post('/venues/bookings', async (req, res) => {
         venueId,
         bookDate,
         status: { [Op.in]: ['pending', 'approved'] },
-        [Op.or]: [
-          {
-            startTime: { [Op.lt]: endTime },
-            endTime: { [Op.gt]: startTime }
-          }
-        ]
+        startTime: { [Op.lt]: endTime },
+        endTime: { [Op.gt]: startTime }
       }
     });
     
     if (conflict) {
-      return res.send({ code: -1, error: '该时间段已被预约' });
+      return res.send({ code: -1, error: `该时间段已被预约 (${conflict.startTime}-${conflict.endTime})` });
     }
     
     const booking = await VenueBooking.create({

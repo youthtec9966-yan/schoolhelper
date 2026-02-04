@@ -360,6 +360,33 @@
             </div>
 
             <div class="card">
+                <h3>手动占用/预约 (管理员)</h3>
+                <div class="form-group">
+                    <label>选择场馆</label>
+                    <select id="admin-book-venue-id" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                    <label>日期</label>
+                    <input type="date" id="admin-book-date" class="form-control">
+                </div>
+                <div class="form-group" style="display:flex;gap:10px">
+                    <div style="flex:1">
+                        <label>开始时间</label>
+                        <input type="time" id="admin-book-start" class="form-control" value="08:00">
+                    </div>
+                    <div style="flex:1">
+                        <label>结束时间</label>
+                        <input type="time" id="admin-book-end" class="form-control" value="10:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>备注/原因</label>
+                    <input type="text" id="admin-book-reason" class="form-control" placeholder="如：内部会议占用">
+                </div>
+                <button class="btn btn-primary" onclick="addAdminBooking()">提交占用</button>
+            </div>
+
+            <div class="card">
                 <h3>预约审核</h3>
                 <div id="venue-booking-list"></div>
             </div>
@@ -888,19 +915,32 @@
             const json = await res.json();
             const container = document.getElementById('venue-list');
             
+            // Populate select for admin booking
+            const select = document.getElementById('admin-book-venue-id');
+            if (select) {
+                select.innerHTML = json.data.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            }
+            
             container.innerHTML = json.data.map(item => `
                 <div class="list-item">
                     <div class="item-info">
                         <div class="item-title">${item.name} (${item.type})</div>
                         <div class="item-meta">
-                            开放时间: ${item.openHours} | 状态: 
-                            <span style="color:${item.status === 'open' ? 'green' : 'red'}">${item.status === 'open' ? '开放' : (item.status === 'maintenance' ? '维护' : '关闭')}</span>
+                            开放时间: ${item.openHours} | 当前状态: 
+                            <span style="font-weight:bold; color:${item.status === 'open' ? 'green' : (item.status === 'maintenance' ? 'orange' : 'red')}">
+                                ${item.status === 'open' ? '开放中' : (item.status === 'maintenance' ? '维护中' : '已关闭')}
+                            </span>
+                        </div>
+                        <div style="margin-top:5px">
+                            <label style="font-size:12px;color:#666">设置状态: </label>
+                            <select onchange="updateVenueStatus(${item.id}, this.value)" style="padding:2px 5px;border-radius:4px;border:1px solid #ddd">
+                                <option value="open" ${item.status === 'open' ? 'selected' : ''}>开放</option>
+                                <option value="closed" ${item.status === 'closed' ? 'selected' : ''}>关闭</option>
+                                <option value="maintenance" ${item.status === 'maintenance' ? 'selected' : ''}>维护</option>
+                            </select>
                         </div>
                     </div>
                     <div class="item-actions">
-                        <button class="btn btn-primary" onclick="updateVenueStatus(${item.id}, '${item.status === 'open' ? 'closed' : 'open'}')">
-                            ${item.status === 'open' ? '关闭' : '开放'}
-                        </button>
                         <button class="btn btn-danger" onclick="deleteVenue(${item.id})">删除</button>
                     </div>
                 </div>
@@ -939,6 +979,37 @@
             if (!confirm('确认删除？')) return;
             await fetch(`/api/venues/${id}`, { method: 'DELETE' });
             fetchVenues();
+        }
+
+        async function addAdminBooking() {
+            const venueId = document.getElementById('admin-book-venue-id').value;
+            const bookDate = document.getElementById('admin-book-date').value;
+            const startTime = document.getElementById('admin-book-start').value;
+            const endTime = document.getElementById('admin-book-end').value;
+            const reason = document.getElementById('admin-book-reason').value;
+
+            if (!venueId || !bookDate || !startTime || !endTime) {
+                return alert('请填写完整信息');
+            }
+
+            const res = await fetch('/api/venues/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    venueId, bookDate, startTime, endTime, reason,
+                    isAdmin: true,
+                    userName: '管理员',
+                    userPhone: 'Admin'
+                })
+            });
+            
+            const json = await res.json();
+            if (json.code !== 0) {
+                alert('预约失败: ' + json.error);
+            } else {
+                alert('占用成功');
+                fetchVenueBookings();
+            }
         }
 
         async function fetchVenueBookings() {
