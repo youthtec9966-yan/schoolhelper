@@ -11,6 +11,9 @@ module.exports = function (sequelize) {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    slotId: {
+      type: DataTypes.INTEGER,
+    },
     openid: {
       type: DataTypes.STRING,
       allowNull: false,

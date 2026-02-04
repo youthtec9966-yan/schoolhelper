@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Venue, VenueBooking } = require('../db');
+const { Venue, VenueBooking, VenueSlot } = require('../db');
 const { Op } = require('sequelize');
 
 // --- Venue Management (Public/Admin) ---
@@ -69,6 +69,91 @@ router.delete('/venues/:id', async (req, res) => {
   }
 });
 
+router.get('/venues/:id/slots/dates', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const slots = await VenueSlot.findAll({
+      where: { venueId: id, status: 'open' },
+      attributes: ['slotDate'],
+      order: [['slotDate', 'ASC']]
+    });
+    const dates = Array.from(new Set(slots.map(s => s.slotDate)));
+    res.send({ code: 0, data: dates });
+  } catch (err) {
+    res.send({ code: -1, error: err.toString() });
+  }
+});
+
+router.get('/venues/:id/slots', async (req, res) => {
+  const { id } = req.params;
+  const { date } = req.query;
+  try {
+    const where = { venueId: id };
+    if (date) where.slotDate = date;
+    const slots = await VenueSlot.findAll({
+      where,
+      order: [['slotDate', 'ASC'], ['startTime', 'ASC']]
+    });
+    const slotIds = slots.map(s => s.id);
+    const bookings = slotIds.length ? await VenueBooking.findAll({
+      where: {
+        slotId: { [Op.in]: slotIds },
+        status: { [Op.in]: ['pending', 'approved'] }
+      }
+    }) : [];
+    const bookedMap = {};
+    bookings.forEach(b => { bookedMap[b.slotId] = true; });
+    const data = slots.map(s => ({
+      ...s.toJSON(),
+      available: s.status === 'open' && !bookedMap[s.id]
+    }));
+    res.send({ code: 0, data });
+  } catch (err) {
+    res.send({ code: -1, error: err.toString() });
+  }
+});
+
+router.post('/venues/slots', async (req, res) => {
+  const { venueId, slotDate, startTime, endTime, status } = req.body;
+  if (!venueId || !slotDate || !startTime || !endTime) {
+    return res.send({ code: -1, error: '缺少必填参数' });
+  }
+  try {
+    const slot = await VenueSlot.create({
+      venueId,
+      slotDate,
+      startTime,
+      endTime,
+      status: status || 'open'
+    });
+    res.send({ code: 0, data: slot });
+  } catch (err) {
+    res.send({ code: -1, error: err.toString() });
+  }
+});
+
+router.put('/venues/slots/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const slot = await VenueSlot.findByPk(id);
+    if (!slot) return res.send({ code: -1, error: '时段不存在' });
+    await slot.update(req.body);
+    res.send({ code: 0, data: slot });
+  } catch (err) {
+    res.send({ code: -1, error: err.toString() });
+  }
+});
+
+router.delete('/venues/slots/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await VenueSlot.destroy({ where: { id } });
+    res.send({ code: 0, data: 'deleted' });
+  } catch (err) {
+    res.send({ code: -1, error: err.toString() });
+  }
+});
+
 
 // --- Booking Management ---
 
@@ -114,7 +199,7 @@ router.get('/venues/bookings', async (req, res) => {
 // Create Booking (User or Admin)
 router.post('/venues/bookings', async (req, res) => {
   let openid = req.headers['x-wx-openid'];
-  const { venueId, userName, userPhone, bookDate, startTime, endTime, reason, isAdmin } = req.body;
+  const { venueId, slotId, userName, userPhone, bookDate, startTime, endTime, reason, isAdmin } = req.body;
 
   // Allow admin to book without openid (assign 'ADMIN')
   if (!openid) {
@@ -125,28 +210,83 @@ router.post('/venues/bookings', async (req, res) => {
       }
   }
   
-  if (!venueId || !bookDate || !startTime || !endTime) {
+  if (!venueId || (!slotId && (!bookDate || !startTime || !endTime))) {
     return res.send({ code: -1, error: '缺少必填参数' });
   }
   
   try {
-    // Debug logging
-    console.log('Booking Request:', { venueId, bookDate, startTime, endTime, openid });
-
-    // Validate times
-    const parseTime = (t) => {
+    if (slotId) {
+      const slot = await VenueSlot.findByPk(slotId);
+      if (!slot || String(slot.venueId) !== String(venueId)) {
+        return res.send({ code: -1, error: '时段不存在' });
+      }
+      if (slot.status !== 'open') {
+        return res.send({ code: -1, error: '该时段不可预约' });
+      }
+      const parseTime = (t) => {
         const [h, m] = t.split(':').map(Number);
         return h * 60 + m;
-    };
-    
-    const startMin = parseTime(startTime);
-    const endMin = parseTime(endTime);
-    
-    if (startMin >= endMin) {
-        return res.send({ code: -1, error: '开始时间必须早于结束时间' });
+      };
+      const startMin = parseTime(slot.startTime);
+      const endMin = parseTime(slot.endTime);
+      const existingSameUser = await VenueBooking.findOne({
+        where: {
+          slotId,
+          openid,
+          status: { [Op.in]: ['pending', 'approved'] }
+        }
+      });
+      if (existingSameUser) {
+        return res.send({ code: 0, data: existingSameUser, message: '已存在该时段预约' });
+      }
+      const existing = await VenueBooking.findOne({
+        where: {
+          slotId,
+          status: { [Op.in]: ['pending', 'approved'] }
+        }
+      });
+      if (existing) {
+        return res.send({ code: -1, error: `该时间段已被预约 (${slot.startTime}-${slot.endTime})` });
+      }
+      const manualBookings = await VenueBooking.findAll({
+        where: {
+          venueId,
+          bookDate: slot.slotDate,
+          slotId: null,
+          status: { [Op.in]: ['pending', 'approved'] }
+        }
+      });
+      for (const booking of manualBookings) {
+        const bStart = parseTime(booking.startTime);
+        const bEnd = parseTime(booking.endTime);
+        if (bStart < endMin && bEnd > startMin) {
+          return res.send({ code: -1, error: `该时间段已被预约 (${booking.startTime}-${booking.endTime})` });
+        }
+      }
+      const booking = await VenueBooking.create({
+        venueId,
+        slotId,
+        openid,
+        userName,
+        userPhone,
+        bookDate: slot.slotDate,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        reason,
+        status: 'pending'
+      });
+      return res.send({ code: 0, data: booking });
     }
 
-    // Check conflict (Fetch all bookings for the day and check in JS for safety)
+    const parseTime = (t) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const startMin = parseTime(startTime);
+    const endMin = parseTime(endTime);
+    if (startMin >= endMin) {
+      return res.send({ code: -1, error: '开始时间必须早于结束时间' });
+    }
     const existingBookings = await VenueBooking.findAll({
       where: {
         venueId,
@@ -154,23 +294,26 @@ router.post('/venues/bookings', async (req, res) => {
         status: { [Op.in]: ['pending', 'approved'] }
       }
     });
-
     for (const booking of existingBookings) {
-        const bStart = parseTime(booking.startTime);
-        const bEnd = parseTime(booking.endTime);
-
-        // Overlap: (StartA < EndB) and (EndA > StartB)
-        if (bStart < endMin && bEnd > startMin) {
-             if (booking.openid === openid) {
-                 return res.send({ code: 0, data: booking, message: '已存在该时间段预约' });
-             }
-             console.log('Conflict Found:', booking.toJSON());
-             return res.send({ code: -1, error: `该时间段已被预约 (${booking.startTime}-${booking.endTime})` });
+      const bStart = parseTime(booking.startTime);
+      const bEnd = parseTime(booking.endTime);
+      if (bStart < endMin && bEnd > startMin) {
+        if (booking.openid === openid) {
+          return res.send({ code: 0, data: booking, message: '已存在该时间段预约' });
         }
+        return res.send({ code: -1, error: `该时间段已被预约 (${booking.startTime}-${booking.endTime})` });
+      }
     }
-    
     const booking = await VenueBooking.create({
-      venueId, openid, userName, userPhone, bookDate, startTime, endTime, reason, status: 'pending'
+      venueId,
+      openid,
+      userName,
+      userPhone,
+      bookDate,
+      startTime,
+      endTime,
+      reason,
+      status: 'pending'
     });
     
     res.send({ code: 0, data: booking });

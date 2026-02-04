@@ -27,6 +27,7 @@ const defineCanteenOrder = require('./models/canteen_order');
 const defineCanteenDish = require('./models/canteen_dish');
 const defineVenue = require('./models/venue');
 const defineVenueBooking = require('./models/venue_booking');
+const defineVenueSlot = require('./models/venue_slot');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -43,6 +44,7 @@ const CanteenOrder = defineCanteenOrder(sequelize);
 const CanteenDish = defineCanteenDish(sequelize);
 const Venue = defineVenue(sequelize);
 const VenueBooking = defineVenueBooking(sequelize);
+const VenueSlot = defineVenueSlot(sequelize);
 
 // 建立关联
 Post.hasMany(Comment, { foreignKey: 'postId' });
@@ -53,6 +55,10 @@ PostLike.belongsTo(Post, { foreignKey: 'postId' });
 
 Venue.hasMany(VenueBooking, { foreignKey: 'venueId' });
 VenueBooking.belongsTo(Venue, { foreignKey: 'venueId' });
+Venue.hasMany(VenueSlot, { foreignKey: 'venueId' });
+VenueSlot.belongsTo(Venue, { foreignKey: 'venueId' });
+VenueSlot.hasMany(VenueBooking, { foreignKey: 'slotId' });
+VenueBooking.belongsTo(VenueSlot, { foreignKey: 'slotId' });
 
 // 保留 Counter 示例，以免破坏原有逻辑
 const Counter = sequelize.define("Counter", {
@@ -82,6 +88,7 @@ async function init() {
   await CanteenDish.sync({ alter: true });
   await Venue.sync({ alter: true });
   await VenueBooking.sync({ alter: true });
+  await VenueSlot.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -102,5 +109,6 @@ module.exports = {
   CanteenOrder,
   CanteenDish,
   Venue,
-  VenueBooking
+  VenueBooking,
+  VenueSlot
 };
