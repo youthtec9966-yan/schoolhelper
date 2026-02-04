@@ -25,6 +25,8 @@ const defineCourse = require('./models/course');
 const defineExam = require('./models/exam');
 const defineCanteenOrder = require('./models/canteen_order');
 const defineCanteenDish = require('./models/canteen_dish');
+const defineVenue = require('./models/venue');
+const defineVenueBooking = require('./models/venue_booking');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -39,6 +41,8 @@ const Course = defineCourse(sequelize);
 const Exam = defineExam(sequelize);
 const CanteenOrder = defineCanteenOrder(sequelize);
 const CanteenDish = defineCanteenDish(sequelize);
+const Venue = defineVenue(sequelize);
+const VenueBooking = defineVenueBooking(sequelize);
 
 // 建立关联
 Post.hasMany(Comment, { foreignKey: 'postId' });

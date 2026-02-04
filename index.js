@@ -36,6 +36,10 @@ app.use('/api', canteenRouter);
 const canteenDishRouter = require('./routes/canteen_dish');
 app.use('/api', canteenDishRouter);
 
+// 挂载场馆预约路由
+const venueRouter = require('./routes/venue');
+app.use('/api', venueRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));

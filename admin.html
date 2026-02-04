@@ -59,6 +59,7 @@
         <div class="nav-item" onclick="switchTab('course')">课表管理</div>
         <div class="nav-item" onclick="switchTab('exam')">考试安排</div>
         <div class="nav-item" onclick="switchTab('canteen')">食堂订单</div>
+        <div class="nav-item" onclick="switchTab('venue')">场馆预约</div>
     </div>
 
     <!-- Main Content -->
@@ -319,6 +320,51 @@
             </div>
         </div>
 
+        <!-- 7. Venue Management Section -->
+        <div id="section-venue" class="section">
+            <h2>场馆预约管理</h2>
+            
+            <div class="card">
+                <h3>添加/管理场馆</h3>
+                <div class="form-group">
+                    <label>场馆名称</label>
+                    <input type="text" id="venue-name" class="form-control" placeholder="如：体育馆羽毛球场1号">
+                </div>
+                <div class="form-group">
+                    <label>类型</label>
+                    <select id="venue-type" class="form-control">
+                        <option value="classroom">教室</option>
+                        <option value="sports">体育场馆</option>
+                        <option value="meeting">会议室</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>开放时间</label>
+                    <input type="text" id="venue-hours" class="form-control" value="08:00-22:00">
+                </div>
+                <div class="form-group">
+                    <label>状态</label>
+                    <select id="venue-status" class="form-control">
+                        <option value="open">开放</option>
+                        <option value="closed">关闭</option>
+                        <option value="maintenance">维护中</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addVenue()">添加场馆</button>
+            </div>
+
+            <div class="card">
+                <h3>场馆列表</h3>
+                <div id="venue-list"></div>
+            </div>
+
+            <div class="card">
+                <h3>预约审核</h3>
+                <div id="venue-booking-list"></div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -338,6 +384,10 @@
             if (tab === 'canteen') {
                 fetchCanteenOrders();
                 fetchDishes();
+            }
+            if (tab === 'venue') {
+                fetchVenues();
+                fetchVenueBookings();
             }
         }
 
@@ -830,6 +880,109 @@
             a.href = url;
             a.download = 'menu_template.csv';
             a.click();
+        }
+
+        // --- 8. Venue Logic ---
+        async function fetchVenues() {
+            const res = await fetch('/api/venues');
+            const json = await res.json();
+            const container = document.getElementById('venue-list');
+            
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.name} (${item.type})</div>
+                        <div class="item-meta">
+                            开放时间: ${item.openHours} | 状态: 
+                            <span style="color:${item.status === 'open' ? 'green' : 'red'}">${item.status === 'open' ? '开放' : (item.status === 'maintenance' ? '维护' : '关闭')}</span>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-primary" onclick="updateVenueStatus(${item.id}, '${item.status === 'open' ? 'closed' : 'open'}')">
+                            ${item.status === 'open' ? '关闭' : '开放'}
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteVenue(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addVenue() {
+            const name = document.getElementById('venue-name').value;
+            if (!name) return alert('请输入场馆名称');
+            
+            await fetch('/api/venues', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    type: document.getElementById('venue-type').value,
+                    status: document.getElementById('venue-status').value,
+                    openHours: document.getElementById('venue-hours').value
+                })
+            });
+            
+            document.getElementById('venue-name').value = '';
+            fetchVenues();
+        }
+
+        async function updateVenueStatus(id, status) {
+            await fetch(`/api/venues/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            fetchVenues();
+        }
+
+        async function deleteVenue(id) {
+            if (!confirm('确认删除？')) return;
+            await fetch(`/api/venues/${id}`, { method: 'DELETE' });
+            fetchVenues();
+        }
+
+        async function fetchVenueBookings() {
+            const res = await fetch('/api/venues/bookings?isAdmin=true');
+            const json = await res.json();
+            const container = document.getElementById('venue-booking-list');
+            
+            if (!json.data || json.data.length === 0) {
+                container.innerHTML = '<div style="color:#999;text-align:center">暂无预约</div>';
+                return;
+            }
+
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.venueName || '未知场馆'}</div>
+                        <div class="item-meta">
+                            日期: ${item.bookDate} | 时间: ${item.startTime}-${item.endTime}
+                        </div>
+                        <div class="item-meta">
+                            预约人: ${item.userName || item.openid || '用户'} ${item.userPhone ? '('+item.userPhone+')' : ''} | 状态: 
+                            <span class="${item.status === 'approved' ? 'text-success' : (item.status === 'pending' ? 'text-warning' : 'text-danger')}">
+                                ${item.status === 'pending' ? '待审核' : (item.status === 'approved' ? '已通过' : '已拒绝')}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        ${item.status === 'pending' ? `
+                            <button class="btn btn-success" onclick="auditVenueBooking(${item.id}, 'approved')">通过</button>
+                            <button class="btn btn-danger" onclick="auditVenueBooking(${item.id}, 'rejected')">拒绝</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function auditVenueBooking(id, status) {
+            if (!confirm(`确认${status === 'approved' ? '通过' : '拒绝'}此预约？`)) return;
+            await fetch(`/api/venues/bookings/${id}/audit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            fetchVenueBookings();
         }
 
         // Init
