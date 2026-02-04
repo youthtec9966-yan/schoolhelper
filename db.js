@@ -71,24 +71,30 @@ const Counter = sequelize.define("Counter", {
 
 // 数据库初始化方法
 async function init() {
-  // sync({ alter: true }) 会自动根据模型修改表结构，生产环境慎用 alter，建议用 migration
-  // 但对于云托管初学者，alter 是最方便的
-  await Counter.sync({ alter: true });
-  await Post.sync({ alter: true });
-  await News.sync({ alter: true });
-  await Club.sync({ alter: true });
-  await Activity.sync({ alter: true });
-  await User.sync({ alter: true });
-  await Carousel.sync({ alter: true });
-  await Comment.sync({ alter: true });
-  await PostLike.sync({ alter: true });
-  await Course.sync({ alter: true });
-  await Exam.sync({ alter: true });
-  await CanteenOrder.sync({ alter: true });
-  await CanteenDish.sync({ alter: true });
-  await Venue.sync({ alter: true });
-  await VenueBooking.sync({ alter: true });
-  await VenueSlot.sync({ alter: true });
+  try {
+    // sync({ alter: true }) 会自动根据模型修改表结构，生产环境慎用 alter，建议用 migration
+    // 但对于云托管初学者，alter 是最方便的
+    await Counter.sync({ alter: true });
+    await Post.sync({ alter: true });
+    await News.sync({ alter: true });
+    await Club.sync({ alter: true });
+    await Activity.sync({ alter: true });
+    await User.sync({ alter: true });
+    await Carousel.sync({ alter: true });
+    await Comment.sync({ alter: true });
+    await PostLike.sync({ alter: true });
+    await Course.sync({ alter: true });
+    await Exam.sync({ alter: true });
+    await CanteenOrder.sync({ alter: true });
+    await CanteenDish.sync({ alter: true });
+    await Venue.sync({ alter: true });
+    await VenueBooking.sync({ alter: true });
+    await VenueSlot.sync({ alter: true });
+  } catch (err) {
+    console.error('Database initialization failed:', err);
+    // 抛出错误以便在 index.js 中捕获或导致进程退出
+    throw err;
+  }
 }
 
 // 导出初始化方法和模型
