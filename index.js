@@ -28,6 +28,14 @@ app.use('/api', courseRouter);
 const examRouter = require('./routes/exam');
 app.use('/api', examRouter);
 
+// 挂载食堂订餐路由
+const canteenRouter = require('./routes/canteen_order');
+app.use('/api', canteenRouter);
+
+// 挂载食堂菜品路由
+const canteenDishRouter = require('./routes/canteen_dish');
+app.use('/api', canteenDishRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));

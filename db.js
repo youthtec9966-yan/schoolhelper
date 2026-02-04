@@ -23,6 +23,8 @@ const defineComment = require('./models/comment');
 const definePostLike = require('./models/post_like');
 const defineCourse = require('./models/course');
 const defineExam = require('./models/exam');
+const defineCanteenOrder = require('./models/canteen_order');
+const defineCanteenDish = require('./models/canteen_dish');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -35,6 +37,8 @@ const Comment = defineComment(sequelize);
 const PostLike = definePostLike(sequelize);
 const Course = defineCourse(sequelize);
 const Exam = defineExam(sequelize);
+const CanteenOrder = defineCanteenOrder(sequelize);
+const CanteenDish = defineCanteenDish(sequelize);
 
 // 建立关联
 Post.hasMany(Comment, { foreignKey: 'postId' });
@@ -67,6 +71,8 @@ async function init() {
   await PostLike.sync({ alter: true });
   await Course.sync({ alter: true });
   await Exam.sync({ alter: true });
+  await CanteenOrder.sync({ alter: true });
+  await CanteenDish.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -83,5 +89,7 @@ module.exports = {
   Comment,
   PostLike,
   Course,
-  Exam
+  Exam,
+  CanteenOrder,
+  CanteenDish
 };

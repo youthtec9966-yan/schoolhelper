@@ -41,6 +41,11 @@
 
         /* Post Specific */
         .post-images img { max-width: 150px; max-height: 150px; margin-right: 5px; margin-top: 5px; }
+        
+        /* Utility */
+        .text-success { color: #52c41a; font-weight: bold; }
+        .text-warning { color: #faad14; font-weight: bold; }
+        .text-danger { color: #ff4d4f; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -53,6 +58,7 @@
         <div class="nav-item" onclick="switchTab('news')">校园咨询/公告</div>
         <div class="nav-item" onclick="switchTab('course')">课表管理</div>
         <div class="nav-item" onclick="switchTab('exam')">考试安排</div>
+        <div class="nav-item" onclick="switchTab('canteen')">食堂订单</div>
     </div>
 
     <!-- Main Content -->
@@ -255,6 +261,64 @@
             </div>
         </div>
 
+        <!-- 6. Canteen Order Management Section -->
+        <div id="section-canteen" class="section">
+            <h2>食堂订单管理</h2>
+            
+             <!-- Menu Management -->
+            <div class="card">
+                <h3>菜谱管理</h3>
+                <div style="display:flex;gap:10px;margin-bottom:15px">
+                     <button class="btn btn-primary" onclick="showAddDishModal()">手动添加菜品</button>
+                     <button class="btn btn-success" onclick="document.getElementById('dish-import-file').click()">批量导入(CSV)</button>
+                     <input type="file" id="dish-import-file" style="display:none" accept=".csv" onchange="importDishes(this)">
+                     <a href="#" onclick="downloadDishTemplate()" style="line-height:30px;margin-left:10px">下载模板</a>
+                </div>
+                
+                <!-- Add Dish Form (Hidden by default, shown via modal or toggle) - Let's use a simple toggle for now -->
+                <div id="add-dish-form" style="display:none; border:1px solid #eee; padding:15px; margin-bottom:15px; background:#fafafa">
+                    <h4>新增菜品</h4>
+                    <div class="form-group">
+                        <label>菜品名称</label>
+                        <input type="text" id="dish-name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>分类 (如：早餐, 午餐, 面食)</label>
+                        <input type="text" id="dish-category" class="form-control" list="category-list">
+                        <datalist id="category-list">
+                            <option value="早餐"></option>
+                            <option value="午餐"></option>
+                            <option value="晚餐"></option>
+                            <option value="饮品"></option>
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label>价格</label>
+                        <input type="number" id="dish-price" class="form-control" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>图片URL</label>
+                        <input type="text" id="dish-image" class="form-control" placeholder="http://...">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <input type="text" id="dish-desc" class="form-control">
+                    </div>
+                    <button class="btn btn-primary" onclick="addDish()">保存</button>
+                    <button class="btn" onclick="document.getElementById('add-dish-form').style.display='none'">取消</button>
+                </div>
+
+                <div id="dish-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:15px;">
+                    <!-- Dishes will be rendered here -->
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>订单列表</h3>
+                <div id="canteen-list">加载中...</div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -271,6 +335,10 @@
             if (tab === 'news') fetchNews();
             if (tab === 'course') fetchCourses();
             if (tab === 'exam') fetchExams();
+            if (tab === 'canteen') {
+                fetchCanteenOrders();
+                fetchDishes();
+            }
         }
 
         // --- 1. Audit Logic ---
@@ -582,6 +650,186 @@
             if (!confirm('确认删除？')) return;
             await fetch(`/api/courses/${id}`, { method: 'DELETE' });
             fetchCourses();
+        }
+
+        // --- 6. Canteen Logic ---
+        async function fetchCanteenOrders() {
+            const res = await fetch('/api/canteen/orders');
+            const json = await res.json();
+            const container = document.getElementById('canteen-list');
+            
+            if (!json.data || json.data.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999">暂无订单</div>';
+                return;
+            }
+
+            container.innerHTML = json.data.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.dish}</div>
+                        <div class="item-meta">
+                            <span style="color:#1890ff;font-weight:bold">${item.name}</span> | 
+                            <span>${item.phone}</span> | 
+                            <span>取餐时间: ${item.diningTime}</span>
+                        </div>
+                        <div class="item-meta">状态: 
+                            <span class="${item.status === 'completed' ? 'text-success' : (item.status === 'pending' ? 'text-warning' : 'text-danger')}">
+                                ${item.status === 'pending' ? '待处理' : (item.status === 'completed' ? '已完成' : '已取消')}
+                            </span>
+                            ${item.remark ? ` | 备注: ${item.remark}` : ''}
+                        </div>
+                        <div class="item-meta" style="font-size:11px;color:#ccc">
+                             下单时间: ${new Date(item.createdAt).toLocaleString()}
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        ${item.status === 'pending' ? `
+                        <button class="btn btn-success" onclick="updateCanteenOrder(${item.id}, 'completed')">完成</button>
+                        <button class="btn btn-danger" onclick="updateCanteenOrder(${item.id}, 'cancelled')">取消</button>
+                        ` : ''}
+                        <button class="btn btn-danger" onclick="deleteCanteenOrder(${item.id})" style="margin-left:5px">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateCanteenOrder(id, status) {
+            if (!confirm(`确认标记为${status === 'completed' ? '完成' : '取消'}？`)) return;
+            await fetch(`/api/canteen/orders/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            fetchCanteenOrders();
+        }
+
+        async function deleteCanteenOrder(id) {
+             if (!confirm('确认删除？')) return;
+             await fetch(`/api/canteen/orders/${id}`, { method: 'DELETE' });
+             fetchCanteenOrders();
+        }
+
+        // --- 7. Canteen Dish Logic ---
+        function showAddDishModal() {
+            document.getElementById('add-dish-form').style.display = 'block';
+        }
+
+        async function fetchDishes() {
+            const res = await fetch('/api/admin/canteen/dishes');
+            const json = await res.json();
+            const container = document.getElementById('dish-list');
+            
+            if (!json.data || json.data.length === 0) {
+                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#999">暂无菜品</div>';
+                return;
+            }
+
+            container.innerHTML = json.data.map(item => `
+                <div class="card" style="margin:0;padding:10px">
+                    <div style="height:120px;background:#eee;margin-bottom:10px;border-radius:4px;overflow:hidden">
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:100%;height:100%;object-fit:cover">` : '<div style="text-align:center;line-height:120px;color:#999">无图</div>'}
+                    </div>
+                    <div style="font-weight:bold">${item.name}</div>
+                    <div style="font-size:12px;color:#666;margin:5px 0">
+                        <span style="background:#e6f7ff;color:#1890ff;padding:2px 5px;border-radius:2px">${item.category}</span>
+                        <span style="float:right;color:#f50;font-weight:bold">￥${item.price}</span>
+                    </div>
+                    <div style="font-size:12px;color:#999;margin-bottom:10px">${item.description || ''}</div>
+                    <button class="btn btn-danger" style="width:100%;font-size:12px" onclick="deleteDish(${item.id})">删除</button>
+                </div>
+            `).join('');
+        }
+
+        async function addDish() {
+            const name = document.getElementById('dish-name').value;
+            const price = document.getElementById('dish-price').value;
+            if (!name || !price) return alert('请填写名称和价格');
+
+            await fetch('/api/canteen/dishes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    price,
+                    category: document.getElementById('dish-category').value || '其他',
+                    imageUrl: document.getElementById('dish-image').value,
+                    description: document.getElementById('dish-desc').value
+                })
+            });
+            
+            document.getElementById('add-dish-form').style.display = 'none';
+            // clear inputs
+            document.getElementById('dish-name').value = '';
+            document.getElementById('dish-price').value = '';
+            fetchDishes();
+        }
+
+        async function deleteDish(id) {
+            if (!confirm('确认删除此菜品？')) return;
+            await fetch(`/api/canteen/dishes/${id}`, { method: 'DELETE' });
+            fetchDishes();
+        }
+
+        async function importDishes(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const csvText = await readCsvFileSmart(file);
+            // Parse CSV manually for simplicity or assume it's standard format
+            // Simple parser: split lines, split commas (handling quotes is harder but let's assume simple csv)
+            // Better: reuse a library or simple logic.
+            // Format: name,category,price,description,imageUrl
+            
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(','); // Simple split, assumes no commas in content
+                if (parts.length < 2) continue;
+                
+                const row = {};
+                // Map headers to fields if headers match, or just assume order: name, category, price...
+                // Let's assume order: Name, Category, Price, Description, ImageUrl
+                row.name = parts[0]?.trim();
+                row.category = parts[1]?.trim();
+                row.price = parts[2]?.trim();
+                row.description = parts[3]?.trim();
+                row.imageUrl = parts[4]?.trim();
+                data.push(row);
+            }
+
+            if (data.length === 0) {
+                alert('解析失败或文件为空');
+                input.value = '';
+                return;
+            }
+
+            if (!confirm(`解析到${data.length}条数据，是否导入？`)) {
+                input.value = '';
+                return;
+            }
+
+            const res = await fetch('/api/canteen/dishes/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ csv: data, replace: false })
+            });
+            
+            const json = await res.json();
+            alert(`导入成功: ${json.data.created}, 跳过: ${json.data.skipped}`);
+            input.value = '';
+            fetchDishes();
+        }
+
+        function downloadDishTemplate() {
+            const csv = 'Name,Category,Price,Description,ImageUrl\n红烧肉,午餐,12.5,肥而不腻,http://...\n番茄炒蛋,午餐,8.0,酸甜可口,';
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'menu_template.csv';
+            a.click();
         }
 
         // Init
