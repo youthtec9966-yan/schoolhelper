@@ -110,8 +110,8 @@ async function init() {
     await CanteenOrder.sync({ alter: true });
     await CanteenDish.sync({ alter: true });
     await Venue.sync({ alter: true });
-    await VenueBooking.sync({ alter: true });
     await VenueSlot.sync({ alter: true });
+    await VenueBooking.sync({ alter: true });
   } catch (err) {
     console.error('Database initialization failed:', err);
     // 抛出错误以便在 index.js 中捕获或导致进程退出
