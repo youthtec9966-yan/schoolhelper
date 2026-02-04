@@ -79,6 +79,28 @@ async function init() {
     await News.sync({ alter: true });
     await Club.sync({ alter: true });
     await Activity.sync({ alter: true });
+
+    // 尝试清理 Users 表的冗余索引，解决 ER_TOO_MANY_KEYS 问题
+    try {
+      const [indexes] = await sequelize.query("SHOW INDEX FROM `Users`");
+      const openidKeys = new Set();
+      indexes.forEach(idx => {
+        if (idx.Column_name === 'openid' && idx.Key_name !== 'PRIMARY') {
+          openidKeys.add(idx.Key_name);
+        }
+      });
+      // 如果存在索引，全部删除，让 sync 重新创建唯一索引
+      if (openidKeys.size > 0) {
+        console.log(`Cleaning up ${openidKeys.size} indexes on Users.openid...`);
+        for (const key of openidKeys) {
+          await sequelize.query(`DROP INDEX \`${key}\` ON \`Users\``);
+        }
+      }
+    } catch (err) {
+      // 如果表不存在或其他错误，忽略
+      // console.log('Index cleanup skipped:', err.message);
+    }
+
     await User.sync({ alter: true });
     await Carousel.sync({ alter: true });
     await Comment.sync({ alter: true });
