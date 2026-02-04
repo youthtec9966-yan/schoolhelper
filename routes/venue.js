@@ -130,19 +130,40 @@ router.post('/venues/bookings', async (req, res) => {
   }
   
   try {
-    // Check conflict
-    const conflict = await VenueBooking.findOne({
+    // Debug logging
+    console.log('Booking Request:', { venueId, bookDate, startTime, endTime, openid });
+
+    // Validate times
+    const parseTime = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
+    
+    const startMin = parseTime(startTime);
+    const endMin = parseTime(endTime);
+    
+    if (startMin >= endMin) {
+        return res.send({ code: -1, error: '开始时间必须早于结束时间' });
+    }
+
+    // Check conflict (Fetch all bookings for the day and check in JS for safety)
+    const existingBookings = await VenueBooking.findAll({
       where: {
         venueId,
         bookDate,
-        status: { [Op.in]: ['pending', 'approved'] },
-        startTime: { [Op.lt]: endTime },
-        endTime: { [Op.gt]: startTime }
+        status: { [Op.in]: ['pending', 'approved'] }
       }
     });
-    
-    if (conflict) {
-      return res.send({ code: -1, error: `该时间段已被预约 (${conflict.startTime}-${conflict.endTime})` });
+
+    for (const booking of existingBookings) {
+        const bStart = parseTime(booking.startTime);
+        const bEnd = parseTime(booking.endTime);
+
+        // Overlap: (StartA < EndB) and (EndA > StartB)
+        if (bStart < endMin && bEnd > startMin) {
+             console.log('Conflict Found:', booking.toJSON());
+             return res.send({ code: -1, error: `该时间段已被预约 (${booking.startTime}-${booking.endTime})` });
+        }
     }
     
     const booking = await VenueBooking.create({
