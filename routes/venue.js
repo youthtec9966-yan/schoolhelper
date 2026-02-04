@@ -161,6 +161,9 @@ router.post('/venues/bookings', async (req, res) => {
 
         // Overlap: (StartA < EndB) and (EndA > StartB)
         if (bStart < endMin && bEnd > startMin) {
+             if (booking.openid === openid) {
+                 return res.send({ code: 0, data: booking, message: '已存在该时间段预约' });
+             }
              console.log('Conflict Found:', booking.toJSON());
              return res.send({ code: -1, error: `该时间段已被预约 (${booking.startTime}-${booking.endTime})` });
         }
