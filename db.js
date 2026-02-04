@@ -51,6 +51,9 @@ Comment.belongsTo(Post, { foreignKey: 'postId' });
 Post.hasMany(PostLike, { foreignKey: 'postId' });
 PostLike.belongsTo(Post, { foreignKey: 'postId' });
 
+Venue.hasMany(VenueBooking, { foreignKey: 'venueId' });
+VenueBooking.belongsTo(Venue, { foreignKey: 'venueId' });
+
 // 保留 Counter 示例，以免破坏原有逻辑
 const Counter = sequelize.define("Counter", {
   count: {
@@ -77,6 +80,8 @@ async function init() {
   await Exam.sync({ alter: true });
   await CanteenOrder.sync({ alter: true });
   await CanteenDish.sync({ alter: true });
+  await Venue.sync({ alter: true });
+  await VenueBooking.sync({ alter: true });
 }
 
 // 导出初始化方法和模型
@@ -95,5 +100,7 @@ module.exports = {
   Course,
   Exam,
   CanteenOrder,
-  CanteenDish
+  CanteenDish,
+  Venue,
+  VenueBooking
 };
