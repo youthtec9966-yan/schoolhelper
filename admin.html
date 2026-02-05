@@ -73,7 +73,10 @@
                 <h3>基础配置</h3>
                 <div class="form-group">
                     <label>DeepSeek API Key</label>
-                    <input type="password" id="ai-key" class="form-control" placeholder="sk-...">
+                    <div style="display:flex;gap:10px;">
+                        <input type="password" id="ai-key" class="form-control" placeholder="sk-..." style="flex:1;">
+                        <button class="btn btn-secondary" onclick="testAiKey()">测试连接</button>
+                    </div>
                     <small style="color: #999;">密钥将加密存储，前端不可见。</small>
                 </div>
                 <div class="form-group">
@@ -1238,6 +1241,31 @@
             };
             reader.readAsText(file);
             input.value = '';
+        }
+
+        async function testAiKey() {
+            const apiKey = document.getElementById('ai-key').value.trim();
+            if (!apiKey) {
+                // 如果输入框为空，尝试从 placeholder 判断是否已配置
+                // 或者干脆提示用户输入
+                return alert('请输入要测试的 API Key');
+            }
+
+            try {
+                const res = await fetch('/api/ai/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apiKey })
+                });
+                const json = await res.json();
+                if (json.code === 0) {
+                    alert('✅ 连接成功！');
+                } else {
+                    alert('❌ 连接失败: ' + (json.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('请求失败');
+            }
         }
 
         // --- Init ---

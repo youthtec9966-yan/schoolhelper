@@ -44,6 +44,55 @@ router.post('/config', async (req, res) => {
   }
 });
 
+// 测试 API Key
+router.post('/test', async (req, res) => {
+  const { apiKey } = req.body;
+  
+  if (!apiKey) {
+    return res.send({ code: -1, error: '请提供 API Key' });
+  }
+
+  // 简单的测试请求：获取模型列表或发送一个简单的 hello
+  // 由于模型列表接口可能不同，我们发送一个简单的 chat 请求
+  const postData = JSON.stringify({
+    model: "deepseek-chat",
+    messages: [
+      { role: "user", content: "Test connection. Reply 'OK' if you receive this." }
+    ],
+    max_tokens: 10
+  });
+
+  const options = {
+    hostname: 'api.deepseek.com',
+    path: '/chat/completions',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  };
+
+  const apiReq = https.request(options, (apiRes) => {
+    let data = '';
+    apiRes.on('data', (chunk) => { data += chunk; });
+    apiRes.on('end', () => {
+      if (apiRes.statusCode >= 200 && apiRes.statusCode < 300) {
+        res.send({ code: 0, data: '连接成功' });
+      } else {
+        res.send({ code: -1, error: `连接失败 (Status: ${apiRes.statusCode})` });
+      }
+    });
+  });
+
+  apiReq.on('error', (e) => {
+    res.send({ code: -1, error: '网络请求失败' });
+  });
+
+  apiReq.write(postData);
+  apiReq.end();
+});
+
 // AI 对话接口
 router.post('/chat', async (req, res) => {
   const { query } = req.body;
