@@ -60,11 +60,36 @@
         <div class="nav-item" onclick="switchTab('exam')">考试安排</div>
         <div class="nav-item" onclick="switchTab('canteen')">食堂订单</div>
         <div class="nav-item" onclick="switchTab('venue')">场馆预约</div>
+        <div class="nav-item" onclick="switchTab('ai')">AI 设置</div>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
         
+        <!-- AI Settings Section -->
+        <div id="section-ai" class="section">
+            <h2>AI 助手设置 (DeepSeek)</h2>
+            <div class="card">
+                <h3>基础配置</h3>
+                <div class="form-group">
+                    <label>DeepSeek API Key</label>
+                    <input type="password" id="ai-key" class="form-control" placeholder="sk-...">
+                    <small style="color: #999;">密钥将加密存储，前端不可见。</small>
+                </div>
+                <div class="form-group">
+                    <label>知识库内容 (TXT)</label>
+                    <div style="margin-bottom: 5px;">
+                        <input type="file" id="ai-txt-upload" accept=".txt" style="display:none" onchange="loadAiKbFile(this)">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ai-txt-upload').click()">📂 从TXT文件导入</button>
+                    </div>
+                    <textarea id="ai-kb" class="form-control" rows="15" placeholder="在此输入校园知识库内容，例如：
+校车每天早上7:00开始运行...
+一食堂有大众菜..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="saveAiConfig()">保存配置</button>
+            </div>
+        </div>
+
         <!-- 1. Post Audit Section -->
         <div id="section-audit" class="section active">
             <h2>帖子审核</h2>
@@ -1159,7 +1184,93 @@
             fetchVenueBookings();
         }
 
-        // Init
+        // --- 9. AI Logic ---
+        async function fetchAiConfig() {
+            try {
+                const res = await fetch('/api/ai/config');
+                const json = await res.json();
+                if (json.code === 0) {
+                    const { hasApiKey, knowledgeBase } = json.data;
+                    document.getElementById('ai-kb').value = knowledgeBase || '';
+                    if (hasApiKey) {
+                        document.getElementById('ai-key').setAttribute('placeholder', '已配置 (输入新密钥以覆盖)');
+                    }
+                }
+            } catch (e) {
+                console.error('Fetch AI config failed', e);
+            }
+        }
+
+        async function saveAiConfig() {
+            const apiKey = document.getElementById('ai-key').value.trim();
+            const knowledgeBase = document.getElementById('ai-kb').value.trim();
+            
+            const payload = { knowledgeBase };
+            if (apiKey) {
+                payload.apiKey = apiKey;
+            }
+
+            try {
+                const res = await fetch('/api/ai/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.code === 0) {
+                    alert('配置已保存');
+                    document.getElementById('ai-key').value = ''; // clear key input
+                    fetchAiConfig();
+                } else {
+                    alert('保存失败: ' + (json.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('请求失败');
+            }
+        }
+
+        function loadAiKbFile(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('ai-kb').value = e.target.result;
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // --- Init ---
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            
+            // Highlight nav
+            const navItems = document.querySelectorAll('.nav-item');
+            if (tab === 'audit') navItems[0].classList.add('active');
+            if (tab === 'carousel') navItems[1].classList.add('active');
+            if (tab === 'news') navItems[2].classList.add('active');
+            if (tab === 'course') navItems[3].classList.add('active');
+            if (tab === 'exam') navItems[4].classList.add('active');
+            if (tab === 'canteen') navItems[5].classList.add('active');
+            if (tab === 'venue') navItems[6].classList.add('active');
+            if (tab === 'ai') navItems[7].classList.add('active');
+
+            // Show section
+            document.getElementById(`section-${tab}`).classList.add('active');
+            
+            // Fetch data
+            if (tab === 'audit') fetchAuditPosts();
+            if (tab === 'carousel') fetchCarousels();
+            if (tab === 'news') fetchNews();
+            if (tab === 'course') fetchCourses();
+            if (tab === 'exam') fetchExams();
+            if (tab === 'canteen') fetchDishes();
+            if (tab === 'venue') fetchVenues();
+            if (tab === 'ai') fetchAiConfig();
+        }
+
+        // Initial Load
         fetchAuditPosts();
     </script>
 </body>

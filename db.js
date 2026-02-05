@@ -28,6 +28,7 @@ const defineCanteenDish = require('./models/canteen_dish');
 const defineVenue = require('./models/venue');
 const defineVenueBooking = require('./models/venue_booking');
 const defineVenueSlot = require('./models/venue_slot');
+const defineSystemConfig = require('./models/system_config');
 
 // 初始化模型
 const Post = definePost(sequelize);
@@ -45,6 +46,7 @@ const CanteenDish = defineCanteenDish(sequelize);
 const Venue = defineVenue(sequelize);
 const VenueBooking = defineVenueBooking(sequelize);
 const VenueSlot = defineVenueSlot(sequelize);
+const SystemConfig = defineSystemConfig(sequelize);
 
 // 建立关联
 Post.hasMany(Comment, { foreignKey: 'postId' });
@@ -112,6 +114,7 @@ async function init() {
     await Venue.sync({ alter: true });
     await VenueSlot.sync({ alter: true });
     await VenueBooking.sync({ alter: true });
+    await SystemConfig.sync({ alter: true });
   } catch (err) {
     console.error('Database initialization failed:', err);
     // 抛出错误以便在 index.js 中捕获或导致进程退出
@@ -138,5 +141,6 @@ module.exports = {
   CanteenDish,
   Venue,
   VenueBooking,
-  VenueSlot
+  VenueSlot,
+  SystemConfig
 };

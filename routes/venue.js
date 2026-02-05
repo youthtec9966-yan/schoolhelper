@@ -95,18 +95,65 @@ router.get('/venues/:id/slots', async (req, res) => {
       order: [['slotDate', 'ASC'], ['startTime', 'ASC']]
     });
     const slotIds = slots.map(s => s.id);
-    const bookings = slotIds.length ? await VenueBooking.findAll({
-      where: {
-        slotId: { [Op.in]: slotIds },
-        status: { [Op.in]: ['pending', 'approved'] }
+    
+    // Fetch ALL bookings for this venue on this date (or all dates if date param missing, but usually date is present)
+    // If date is missing, we need to be careful. But for now let's assume date is present or we fetch all relevant bookings.
+    // Optimization: If date is provided, filter bookings by date.
+    const bookingWhere = {
+      venueId: id,
+      status: { [Op.in]: ['pending', 'approved'] }
+    };
+    if (date) {
+      bookingWhere.bookDate = date;
+    }
+
+    const bookings = await VenueBooking.findAll({
+      where: bookingWhere
+    });
+
+    const bookedSlotIds = new Set();
+    const manualBookings = [];
+
+    bookings.forEach(b => {
+      if (b.slotId) {
+        bookedSlotIds.add(b.slotId);
+      } else {
+        manualBookings.push(b);
       }
-    }) : [];
-    const bookedMap = {};
-    bookings.forEach(b => { bookedMap[b.slotId] = true; });
-    const data = slots.map(s => ({
-      ...s.toJSON(),
-      available: s.status === 'open' && !bookedMap[s.id]
-    }));
+    });
+
+    const parseTime = (t) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const data = slots.map(s => {
+      let isBooked = bookedSlotIds.has(s.id);
+      
+      // Check overlap with manual bookings if not already booked directly
+      if (!isBooked && manualBookings.length > 0) {
+        const startMin = parseTime(s.startTime);
+        const endMin = parseTime(s.endTime);
+        for (const mb of manualBookings) {
+          // Manual booking date must match (already filtered if date param exists, but double check if multiple dates)
+          if (mb.bookDate === s.slotDate) {
+            const bStart = parseTime(mb.startTime);
+            const bEnd = parseTime(mb.endTime);
+            // Overlap condition: (StartA < EndB) and (EndA > StartB)
+            if (startMin < bEnd && endMin > bStart) {
+              isBooked = true;
+              break;
+            }
+          }
+        }
+      }
+
+      return {
+        ...s.toJSON(),
+        available: s.status === 'open' && !isBooked
+      };
+    });
+    
     res.send({ code: 0, data });
   } catch (err) {
     res.send({ code: -1, error: err.toString() });

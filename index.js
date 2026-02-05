@@ -40,6 +40,10 @@ app.use('/api', canteenDishRouter);
 const venueRouter = require('./routes/venue');
 app.use('/api', venueRouter);
 
+// 挂载AI路由
+const aiRouter = require('./routes/ai');
+app.use('/api/ai', aiRouter);
+
 // 首页
 app.get("/", async (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
